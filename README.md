@@ -67,268 +67,189 @@ Contact our founders at hello@trycomp.ai to learn more about how we can help you
 
 Get access to the cloud hosted version of [Comp AI](https://trycomp.ai).
 
-## Getting Started
+## Local Development Setup
 
-To get a local copy up and running, please follow these simple steps.
+A step-by-step guide to get Comp AI running locally with Docker (PostgreSQL + Redis + MinIO).
 
 ### Prerequisites
 
-Here is what you need to be able to run Comp AI.
+- **Bun** (>=1.1.36) — install: `curl -fsSL https://bun.sh/install | bash`
+- **Docker** (for PostgreSQL, Redis, MinIO)
+- **Node.js** (>=20.x)
+- **openssl** (for generating secrets)
 
-- Node.js (Version: >=20.x)
-- Bun (Version: >=1.1.36)
-- Postgres (Version: >=15.x)
-
-## Development
-
-To get the project working locally with all integrations, follow these extended development steps
-
-### Setup
-
-## Add environment variables and fill them out with your credentials
-
-```sh
-cp apps/app/.env.example apps/app/.env
-cp apps/portal/.env.example apps/portal/.env
-cp packages/db/.env.example packages/db/.env
-```
-
-## Get code running locally
-
-1. Clone the repo
+### 1. Clone and Install
 
 ```sh
 git clone https://github.com/trycompai/comp.git
-```
-
-2. Navigate to the project directory
-
-```sh
 cd comp
-```
-
-3. Install dependencies using Bun
-
-```sh
 bun install
 ```
 
-4. Get Database Running
+### 2. Start Infrastructure (Docker)
 
 ```sh
-cd packages/db
-bun run docker:up # Spin up docker container
-bun run db:migrate # Run migrations
+docker compose up -d postgres redis minio
 ```
 
-5. Generate Prisma Types for each app
+This starts:
+- **PostgreSQL 15** on port `5432`
+- **Redis 7** on port `6379`
+- **MinIO (S3)** on port `9000` (console: `9001`)
 
-```sh
-cd apps/app
-bun run db:generate
-cd ../portal
-bun run db:generate
-cd ../api
-bun run db:generate
-```
+### 3. Environment Files
 
-6. Run all apps in parallel from the root directory
+Create these `.env` files:
 
-```sh
-bun run dev
-```
-
----
-
-### Environment Setup
-
-Create the following `.env` files and fill them out with your credentials
-
-- `comp/apps/app/.env`
-- `comp/apps/portal/.env`
-- `comp/packages/db/.env`
-
-You can copy from the `.env.example` files:
-
-### Linux / macOS
-
-```sh
-cp apps/app/.env.example apps/app/.env
-cp apps/portal/.env.example apps/portal/.env
-cp packages/db/.env.example packages/db/.env
-```
-
-### Windows (Command Prompt)
-
-```cmd
-copy apps\app\.env.example apps\app\.env
-copy apps\portal\.env.example apps\portal\.env
-copy packages\db\.env.example packages\db\.env
-```
-
-### Windows (PowerShell)
-
-```powershell
-Copy-Item apps\app\.env.example -Destination apps\app\.env
-Copy-Item apps\portal\.env.example -Destination apps\portal\.env
-Copy-Item packages\db\.env.example -Destination packages\db\.env
-```
-
-Additionally, ensure the following required environment variables are added to `.env` in `comp/apps/app/.env`:
-
+**`packages/db/.env`**
 ```env
-AUTH_SECRET=""                  # Use `openssl rand -base64 32` to generate
-DATABASE_URL="postgresql://user:password@host:port/database"
-RESEND_API_KEY="" # Resend (https://resend.com/api-keys) - Resend Dashboard -> API Keys
-NEXT_PUBLIC_PORTAL_URL="http://localhost:3002"
-REVALIDATION_SECRET=""         # Use `openssl rand -base64 32` to generate
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/comp"
 ```
 
-> ✅ Make sure you have all of these variables in your `.env` file.
-> If you're copying from `.env.example`, it might be missing the last two (`NEXT_PUBLIC_PORTAL_URL` and `REVALIDATION_SECRET`), so be sure to add them manually.
+**`apps/app/.env`**
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/comp"
+AUTH_SECRET="$(openssl rand -base64 32)"
+SECRET_KEY="$(openssl rand -base64 32)"
+NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:3333
+MOCK_REDIS=true
+GROQ_API_KEY=<your-groq-key>       # Get from https://console.groq.com
+OPENAI_API_KEY=<your-groq-key>     # Groq works here too (or real OpenAI key)
+RESEND_API_KEY=placeholder
+TRIGGER_SECRET_KEY=placeholder
+REVALIDATION_SECRET="$(openssl rand -base64 32)"
+APP_AWS_BUCKET_NAME=comp-local
+APP_AWS_REGION=us-east-1
+APP_AWS_ACCESS_KEY_ID=minioadmin
+APP_AWS_SECRET_ACCESS_KEY=minioadmin
+APP_AWS_ORG_ASSETS_BUCKET=comp-local
+APP_AWS_ENDPOINT=http://localhost:9000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_PORTAL_URL=http://localhost:3002
+BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_SELF_HOSTED=true
+SERVICE_TOKEN_TRIGGER=local-dev-service-token
+INTERNAL_API_TOKEN=local-dev-internal-token
+```
 
-Some environment variables may not load correctly from `.env` — in such cases, **hard-code** the values directly in the relevant files (see Hardcoding section below).
+**`apps/api/.env`** — copy from example and add at least:
+```env
+BASE_URL=http://localhost:3333
+BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+PORT=3333
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/comp"
+MOCK_REDIS=true
+SECRET_KEY=<same-as-app-secret-key>
+GROQ_API_KEY=<your-groq-key>
+OPENAI_API_KEY=<your-groq-key>
+APP_AWS_REGION=us-east-1
+APP_AWS_ACCESS_KEY_ID=minioadmin
+APP_AWS_SECRET_ACCESS_KEY=minioadmin
+APP_AWS_BUCKET_NAME=comp-local
+APP_AWS_ENDPOINT=http://localhost:9000
+APP_AWS_QUESTIONNAIRE_UPLOAD_BUCKET=comp-questionnaires
+APP_AWS_KNOWLEDGE_BASE_BUCKET=comp-knowledge-base
+APP_AWS_ORG_ASSETS_BUCKET=comp-org-assets
+SERVICE_TOKEN_TRIGGER=local-dev-service-token
+```
 
----
+> `MOCK_REDIS=true` uses an in-memory Redis mock — no Upstash account needed.
 
-### Cloud & Auth Configuration
-
-#### 1. Trigger.dev
-
-- Create an account on [https://cloud.trigger.dev](https://cloud.trigger.dev)
-- Create a project and copy the Project ID
-- In `comp/apps/app/trigger.config.ts`, set:
-  ```ts
-  project: 'proj_****az***ywb**ob*';
-  ```
-
-#### 2. Google OAuth
-
-- Go to [Google Cloud OAuth Console](https://console.cloud.google.com/auth/clients)
-- Create an OAuth client:
-  - Type: Web Application
-  - Name: `comp_app` # You can choose a different name if you prefer!
-- Add these **Authorized Redirect URIs**:
-
-  ```
-  http://localhost
-  http://localhost:3000
-  http://localhost:3002
-  http://localhost:3000/api/auth/callback/google
-  http://localhost:3002/api/auth/callback/google
-  http://localhost:3000/auth
-  http://localhost:3002/auth
-  ```
-
-- After creating the app, copy the `GOOGLE_ID` and `GOOGLE_SECRET`
-  - Add them to your `.env` files
-  - If that doesn’t work, hard-code them in:
-    ```
-    comp/apps/portal/src/app/lib/auth.ts
-    ```
-
-#### 3. Redis (Upstash)
-
-- Go to [https://console.upstash.com](https://console.upstash.com)
-- Create a Redis database
-- Copy the **Redis URL** and **TOKEN**
-- Add them to your `.env` file, or hard-code them if the environment variables are not being recognized in:
-  ```
-  comp/packages/kv/src/index.ts
-  ```
-
----
-
-### Database Setup
-
-Start and initialize the PostgreSQL database using Docker:
-
-1. Start the database:
-
-   ```sh
-   cd packages/db
-   bun docker:up
-   ```
-
-2. Default credentials:
-   - Database name: `comp`
-   - Username: `postgres`
-   - Password: `postgres`
-
-3. To change the default password:
-
-   ```sql
-   ALTER USER postgres WITH PASSWORD 'new_password';
-   ```
-
-4. If you encounter the following error:
-
-   ```
-   HINT: No function matches the given name and argument types...
-   ```
-
-   Run the fix:
-
-   ```sh
-   psql "postgresql://postgres:<your_password>@localhost:5432/comp" -f ./packages/db/prisma/functionDefinition.sql
-   ```
-
-   Expected output: `CREATE FUNCTION`
-
-   > 💡 `comp` is the database name. Make sure to use the correct **port** and **database name** for your setup.
-
-5. Apply schema and seed:
+### 4. Database Setup
 
 ```sh
- # Generate Prisma client
- bun db:generate
+# Generate Prisma client
+cd packages/db && npx prisma generate
 
- # Push the schema to the database
- bun db:push
+# Push schema to database
+npx prisma db push
 
- # Optional: Seed the database with initial data
- bun db:seed
+# Apply the function definition (required for prefixed CUIDs)
+psql "postgresql://postgres:postgres@localhost:5432/comp" -f prisma/functionDefinition.sql
 ```
 
-Other useful database commands:
+### 5. Build the API
+
+The NestJS API must be built before it can run:
 
 ```sh
-# Open Prisma Studio to view/edit data
-bun db:studio
-
-# Run database migrations
-bun db:migrate
-
-# Stop the database container
-bun docker:down
-
-# Remove the database container and volume
-bun docker:clean
+cd apps/api
+rm -rf dist
+NODE_OPTIONS="--max-old-space-size=4096" npx nest build
 ```
 
----
+> This takes ~30s. The API does **not** use hot-reload in this setup.
 
-### Start Development
+### 6. Enable Email/Password Auth
 
-Once everything is configured:
+Edit `apps/api/src/auth/auth.server.ts` and ensure email/password is enabled:
+
+```ts
+// Line ~300
+emailPassword: {
+  enabled: true,  // was false
+  // ...
+},
+```
+
+### 7. Start Services
+
+Start both services in the background:
 
 ```sh
-bun run dev
+cd apps/api && nohup node --max-old-space-size=4096 dist/src/main.js > /tmp/api.log 2>&1 &
+cd apps/app && nohup node_modules/.bin/next dev --turbo -p 3000 > /tmp/app.log 2>&1 &
 ```
 
-Or use the Turbo repo script:
+### 8. Verify
 
 ```sh
-turbo dev
+curl -s -o /dev/null -w "API: %{http_code}\n" http://localhost:3333
+curl -s -o /dev/null -w "App: %{http_code}\n" http://localhost:3000
 ```
 
-> 💡 Make sure you have Turbo installed. If not, you can install it using Bun:
+Expected output:
+```
+API: 200
+App: 200
+```
+
+### 9. Create an Account
+
+Open `http://localhost:3000/auth` and sign up with email/password (min 8 chars).
+
+The first sign-up auto-creates an organization and redirects to the dashboard.
+
+### Useful Commands
 
 ```sh
-bun add -g turbo
+# View logs
+tail -f /tmp/api.log
+tail -f /tmp/app.log
+
+# Prisma Studio (database GUI)
+cd packages/db && npx prisma studio
+
+# Regenerate Prisma client (after schema changes)
+cd packages/db && npx prisma generate && npx prisma db push
+
+# Stop Docker services
+docker compose down
+
+# Clean Docker volumes (destroys data)
+docker compose down -v
 ```
 
-🎉 Yay! You now have a working local instance of Comp AI! 🚀
+### Notes
+
+- API takes ~30s to start on first boot (NestJS module initialization)
+- App takes ~5-10min on first request (Turbopack compiles routes lazily)
+- Emails don't send locally (`RESEND_API_KEY=placeholder`)
+- Background jobs (Trigger.dev) don't run locally (`TRIGGER_SECRET_KEY=placeholder`)
+- All Redis features use in-memory mock (`MOCK_REDIS=true`) — no Upstash needed
+- S3 features use local MinIO on port 9000 — real AWS not needed
 
 ## Deployment
 

@@ -49,7 +49,7 @@ export function PasswordSignIn({ inviteCode, redirectTo }: PasswordSignInProps) 
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        toast.error(data.error?.message || data.statusText || 'Authentication failed');
+        toast.error(data.message || data.error?.message || 'Authentication failed');
         setLoading(false);
         return;
       }

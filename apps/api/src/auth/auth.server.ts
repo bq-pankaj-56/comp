@@ -296,8 +296,7 @@ export const auth = betterAuth({
   baseURL: process.env.BASE_URL || 'http://localhost:3333',
   trustedOrigins: getTrustedOrigins(),
   emailAndPassword: {
-    // Not used — apps sign in via magic link, email OTP, and OAuth.
-    enabled: false,
+    enabled: true,
   },
   emailVerification: {
     sendOnSignUp: true,
