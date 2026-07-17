@@ -1,8 +1,14 @@
+import { initializeOrganization } from '@/actions/organization/lib/initialize-organization';
 import { auth } from '@/utils/auth';
 import { db } from '@db/server';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { NextRequest } from 'next/server';
+
+const DEFAULT_FRAMEWORK_IDS = [
+  'frk_682734f304cbbfdb3a9d4f44', // SOC 2 v.1
+  'frk_681ecc34e85064efdbb76993', // ISO 27001
+];
 
 export async function GET(request: NextRequest) {
   const h = await headers();
@@ -35,7 +41,7 @@ export async function GET(request: NextRequest) {
     data: {
       name: orgName,
       hasAccess: true,
-      onboardingCompleted: true,
+      onboardingCompleted: false,
       members: {
         create: {
           userId: session.user.id,
@@ -50,8 +56,13 @@ export async function GET(request: NextRequest) {
   await db.onboarding.create({
     data: {
       organizationId: orgId,
-      triggerJobCompleted: true,
+      triggerJobCompleted: false,
     },
+  });
+
+  await initializeOrganization({
+    frameworkIds: DEFAULT_FRAMEWORK_IDS,
+    organizationId: orgId,
   });
 
   const ownerMember = await db.member.findFirst({
